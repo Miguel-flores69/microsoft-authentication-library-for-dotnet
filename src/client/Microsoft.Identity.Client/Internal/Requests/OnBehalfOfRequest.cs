@@ -35,10 +35,9 @@ namespace Microsoft.Identity.Client.Internal.Requests
             }
 
             await ResolveAuthorityAsync().ConfigureAwait(false);
-            CacheInfoTelemetry cacheInfoTelemetry = CacheInfoTelemetry.None;
             MsalAccessTokenCacheItem msalAccessTokenItem = null;
-            var logger = AuthenticationRequestParameters.RequestContext.Logger;
 
+            CacheInfoTelemetry cacheInfoTelemetry;
             if (!_onBehalfOfParameters.ForceRefresh)
             {
                 // look for access token in the cache first.
@@ -68,7 +67,7 @@ namespace Microsoft.Identity.Client.Internal.Requests
             }
             else
             {
-                logger.Info("Skipped looking for an Access Token in the cache because ForceRefresh or Claims were set. ");
+                AuthenticationRequestParameters.RequestContext.Logger.Info("Skipped looking for an Access Token in the cache because ForceRefresh or Claims were set. ");
                 cacheInfoTelemetry = CacheInfoTelemetry.ForceRefresh;
             }
 

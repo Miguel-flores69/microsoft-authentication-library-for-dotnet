@@ -16,7 +16,6 @@ using Microsoft.Identity.Client.Instance.Discovery;
 using Microsoft.Identity.Client.Internal;
 using Microsoft.Identity.Client.Internal.Requests;
 using Microsoft.Identity.Client.OAuth2;
-using Microsoft.Identity.Client.Region;
 using Microsoft.Identity.Client.Utils;
 
 namespace Microsoft.Identity.Client
@@ -92,7 +91,7 @@ namespace Microsoft.Identity.Client
             }
 
             Dictionary<string, string> wamAccountIds = GetWamAccountIds(requestParams, response);
-            Account account = null;
+            Account account;
             if (idToken != null)
             {
                 msalIdTokenCacheItem = new MsalIdTokenCacheItem(
@@ -104,7 +103,6 @@ namespace Microsoft.Identity.Client
                 {
                     IsAdfs = isAdfsAuthority
                 };
-
 
                 msalAccountCacheItem = new MsalAccountCacheItem(
                              instanceDiscoveryMetadata.PreferredCache,
@@ -145,8 +143,7 @@ namespace Microsoft.Identity.Client
                             hasTokens: tokenCacheInternal.HasTokensNoLocks(),
                             suggestedCacheKey: suggestedWebCacheKey);
 
-                        Stopwatch sw = new Stopwatch();
-                        sw.Start();
+                        Stopwatch sw = Stopwatch.StartNew();
 
                         await tokenCacheInternal.OnBeforeAccessAsync(args).ConfigureAwait(false);
                         await tokenCacheInternal.OnBeforeWriteAsync(args).ConfigureAwait(false);
@@ -172,7 +169,10 @@ namespace Microsoft.Identity.Client
                     {
                         requestParams.RequestContext.Logger.Info("Saving Id Token and Account in cache ...");
                         _accessor.SaveIdToken(msalIdTokenCacheItem);
-                        MergeWamAccountIds(msalAccountCacheItem);
+                        if (!requestParams.IsConfidentialClient)
+                        {
+                            MergeWamAccountIds(msalAccountCacheItem);
+                        }
                         _accessor.SaveAccount(msalAccountCacheItem);
                     }
 
@@ -219,8 +219,7 @@ namespace Microsoft.Identity.Client
                             tokenCacheInternal.HasTokensNoLocks(),
                             suggestedCacheKey: suggestedWebCacheKey);
 
-                        Stopwatch sw = new Stopwatch();
-                        sw.Start();
+                        Stopwatch sw = Stopwatch.StartNew();
                         await tokenCacheInternal.OnAfterAccessAsync(args).ConfigureAwait(false);
                         requestParams.RequestContext.ApiEvent.DurationInCacheInMs += sw.ElapsedMilliseconds;
                     }
@@ -340,7 +339,6 @@ namespace Microsoft.Identity.Client
             if (finalList.Count == 0)
             {
                 logger.Verbose("No tokens found for matching authority, client_id, user and scopes.");
-                cacheInfoTelemetry = CacheInfoTelemetry.NoCachedAT;
                 return null;
             }
 

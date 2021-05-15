@@ -41,7 +41,7 @@ namespace Microsoft.Identity.Client.Instance.Discovery
           InstanceDiscoveryResponse userProvidedInstanceDiscoveryResponse = null,
           Uri userProvidedInstanceDiscoveryUri = null) :
             this(
-                httpManager,                
+                httpManager,
                 shouldClearCaches,
                 userProvidedInstanceDiscoveryResponse != null ? new UserMetadataProvider(userProvidedInstanceDiscoveryResponse) : null,
                 userProvidedInstanceDiscoveryUri,
@@ -90,13 +90,20 @@ namespace Microsoft.Identity.Client.Instance.Discovery
             switch (authorityInfo.AuthorityType)
             {
                 case AuthorityType.Aad:
-
-                    return
-                        _userMetadataProvider?.GetMetadataOrThrow(environment, requestContext.Logger) ??  // if user provided metadata but entry is not found, fail fast
-                        await _regionDiscoveryProvider.GetMetadataAsync(new Uri(authorityInfo.CanonicalAuthority), requestContext).ConfigureAwait(false) ??
+                    if (requestContext.ServiceBundle.Config.AzureRegion == null)
+                    {
+                        return _userMetadataProvider?.GetMetadataOrThrow(environment, requestContext.Logger) ??  // if user provided metadata but entry is not found, fail fast
                         _networkCacheMetadataProvider.GetMetadata(environment, requestContext.Logger) ??
                         _knownMetadataProvider.GetMetadata(environment, existingEnvironmentsInCache, requestContext.Logger) ??
                         await GetMetadataEntryAsync(authorityInfo, requestContext).ConfigureAwait(false);
+                    }
+
+                    return
+                    _userMetadataProvider?.GetMetadataOrThrow(environment, requestContext.Logger) ??  // if user provided metadata but entry is not found, fail fast
+                    await _regionDiscoveryProvider.GetMetadataAsync(new Uri(authorityInfo.CanonicalAuthority), requestContext).ConfigureAwait(false) ??
+                    _networkCacheMetadataProvider.GetMetadata(environment, requestContext.Logger) ??
+                    _knownMetadataProvider.GetMetadata(environment, existingEnvironmentsInCache, requestContext.Logger) ??
+                    await GetMetadataEntryAsync(authorityInfo, requestContext).ConfigureAwait(false);
 
                 case AuthorityType.Adfs:
                 case AuthorityType.B2C:
@@ -113,17 +120,24 @@ namespace Microsoft.Identity.Client.Instance.Discovery
             AuthorityInfo authorityInfo,
             RequestContext requestContext)
         {
-
             Uri authorityUri = new Uri(authorityInfo.CanonicalAuthority);
             string environment = authorityInfo.Host;
 
             switch (authorityInfo.AuthorityType)
             {
                 case AuthorityType.Aad:
-
-                    var entry = _userMetadataProvider?.GetMetadataOrThrow(environment, requestContext.Logger) ??
-                                await _regionDiscoveryProvider.GetMetadataAsync(authorityUri, requestContext).ConfigureAwait(false) ??
-                                await FetchNetworkMetadataOrFallbackAsync(requestContext, authorityUri).ConfigureAwait(false);
+                    InstanceDiscoveryMetadataEntry entry;
+                    if (requestContext.ServiceBundle.Config.AzureRegion == null)
+                    {
+                        entry = _userMetadataProvider?.GetMetadataOrThrow(environment, requestContext.Logger) ??
+                               await FetchNetworkMetadataOrFallbackAsync(requestContext, authorityUri).ConfigureAwait(false);
+                    }
+                    else
+                    {
+                        entry = _userMetadataProvider?.GetMetadataOrThrow(environment, requestContext.Logger) ??
+                                   await _regionDiscoveryProvider.GetMetadataAsync(authorityUri, requestContext).ConfigureAwait(false) ??
+                                   await FetchNetworkMetadataOrFallbackAsync(requestContext, authorityUri).ConfigureAwait(false);
+                    }
 
                     if (entry == null)
                     {
